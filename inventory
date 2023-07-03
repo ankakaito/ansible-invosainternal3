@@ -1,0 +1,16 @@
+[nodes]
+# fill with IP public or IP address do you want deploying as group nodes
+192.168.3.101
+
+[groups]
+192.168.3.102
+
+[nodes:vars]
+# fill with username & password user the server 
+ansible_ssh_user=udev
+ansible_ssh_pass=udev@testsrv001-dev
+
+[groups:vars]
+ansible_ssh_user=udev
+ansible_ssh_pass=udev@testsrv001-dev
+

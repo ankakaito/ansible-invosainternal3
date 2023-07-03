@@ -1,0 +1,225 @@
+---
+- name: creating users and groups and ssh connection
+  hosts: nodes
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: Update & upgrade
+      apt:
+        update_cache: true
+        force_apt_get: true
+
+    - name: Install Depedencies
+      apt:
+        name: "{{item}}"
+        state: present
+        update_cache: yes
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - nmap
+        - htop
+        - mlocate
+        - gnupg-agent
+        - software-properties-common
+        - git
+
+    - user:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - docker
+    - group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - docker
+
+    - ansible.builtin.user:
+        name: docker
+        shell: /bin/bash
+        groups: docker
+        append: yes
+
+    - name: Add GPG Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: "{{item}}"
+        state: present
+        update_cache: yes
+      loop:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+
+    - name: install python dependencies
+      become: true
+      apt:
+        update_cache: yes
+        state: latest
+        name: python3-pip
+
+    - name: install docker SDK for python
+      pip:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - docker
+        - docker-compose
+
+    - name: Start Docker Service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Download docker-compose from git
+      ansible.builtin.get_url:
+        url: https://github.com/docker/compose/releases/download/v2.19.0/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+
+    - name: Give Read permission docker-compose
+      ansible.builtin.file:
+        path: /usr/local/bin/docker-compose
+        mode: '0755'
+
+##====================================== Clone Project From Git =============================================##
+    - name: Clone the docker-compose from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/dev-advics.git
+        dest: /home/docker/dev-advics/
+
+    - name: Clone the docker-compose dev-BSR from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/dev-BSR.git
+        dest: /home/docker/dev-BSR/
+      # accept_hostkey: yes
+      #  key_file: /home/udev/.ssh/id_rsa
+
+    - name: Clone the docker-compose dev-GTSI from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/dev-GTSI.git
+        dest: /home/docker/dev-GTSI/
+      # accept_hostkey: yes
+      #  key_file: /home/udev/.ssh/id_rsa
+
+    - name: Clone the docker-compose dev-TJFORCE from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/dev-TJFORCE.git
+        dest: /home/docker/dev-TJFORCE
+      # accept_hostkey: yes
+      #  key_file: /home/udev/.ssh/id_rsa
+
+    - name: Clone the docker-compose dev-INDOCARE from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/dev-INDOCARE.git
+        dest: /home/docker/dev-INDOCARE/
+      # accept_hostkey: yes
+
+    - name: Clone the Golang Recrutiment Apps from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/go_recruitment_app.git
+        dest: /home/docker/go_recruitment_app/
+      # accept_hostkey: yes
+      #  key_file: /home/udev/.ssh/id_rsa
+
+    - name: Clone the Golang Tracker Aps from  Github repository
+      ansible.builtin.git:
+        repo: https://github.com/ankakaito/go_tracker.git
+        dest: /home/docker/go_tracker
+      # accept_hostkey: yes
+      #  key_file: /home/udev/.ssh/id_rsa
+
+    - name: docker login into dockerhub
+      docker_login:
+        username: invosasystems
+        password: selaludiinginkan
+
+    - name: deploy docker with docker compose
+      community.docker.docker_compose:
+        project_src: /home/docker/dev-advics
+        files:
+          - docker-compose.yml
+
+    - name: deploy dev-BSR docker with docker compose
+      community.docker.docker_compose:
+        project_src: /home/docker/dev-BSR
+        files:
+          - docker-compose.yml
+
+    - name: deploy dev-GTSI Postgresql docker with docker compose
+      community.docker.docker_compose:
+        project_src: /home/docker/dev-GTSI/Postgresql/
+        files:
+          - docker-compose.yml
+
+    - name: deploy dev-GTSI Odoo docker with docker compose
+      community.docker.docker_compose:
+        project_src: /home/docker/dev-GTSI/
+        files:
+          - docker-compose.yml
+
+    - name: deploy dev-INDOCARE Odoo docker with docker compose
+      community.docker.docker_compose:
+        project_src: /home/docker/dev-INDOCARE/
+        files:
+          - docker-compose.yml
+
+    - name: deploy dev-TJFORCE Odoo docker with docker compose
+      community.docker.docker_compose:
+        project_src: /home/docker/dev-TJFORCE/
+        files:
+          - docker-compose.yml
+
+    - name: deploy database for Golang Tracker
+      community.docker.docker_compose:
+        project_src: /home/docker/go_tracker/
+        files:
+          - docker-compose.yml
+
+    - name: deploy Golang Recruitment
+      command: mv /home/docker/go_recruitment_app/go_recruitment.service /etc/systemd/system
+
+    - name: give execute comannd
+      ansible.builtin.file:
+        path: /etc/systemd/system/go_recruitment.service
+        mode: '0755'
+
+    - name: deploy Golang Tracker
+      command: mv /home/docker/go_tracker/go_tracker.service /etc/systemd/system
+
+    - name: give execute comannd
+      ansible.builtin.file:
+        path: /etc/systemd/system/go_tracker.service
+        mode: '0755'
+
+    - name: enable golang recruitment service
+      systemd:
+        name: go_recruitment
+        state: started
+        enabled: yes
+
+    - name: enable golang tracker service
+      systemd:
+        name: go_tracker
+        state: started
+        enabled: yes
+
+    - name: change owner & group become docker
+      ansible.builtin.file:
+        path: /home/docker/
+        owner: docker
+        group: docker
+        state: directory
+        recurse: yes
+
